@@ -1,7 +1,13 @@
+#include <queue>
+using namespace std;
+
+enum bypass_type{ prefix, infix, postfix, wide };
+
 #pragma once
 struct node {
 	int value; // Хранимое значение
 	int count = 1; // Количество одинаковых значений
+	int level = 0; // Макс. высота поддеревьев + 1
 	node* left = nullptr;  // указатель на левое поддерево
 	node* right = nullptr; // указатель на правое поддерево
 };
@@ -44,3 +50,11 @@ bool remove_from_tree(tree& t, int value);
 /// </summary>
 /// <param name="t">Дерево, которое требуется удалить</param>
 void drop_tree(tree& t);
+
+/// <summary>
+/// Обход узлов дерева различными способами
+/// </summary>
+/// <param name="t">дерево, которое нужно обойти</param>
+/// <param name="type">тип обхода</param>
+/// <returns>очередь, содержащая последовательность вершин дерева</returns>
+queue<node*> bypass(tree t, bypass_type type = prefix);
