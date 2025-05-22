@@ -8,7 +8,13 @@ stack<node*> find_in_tree(node* root, int value);
 bool remove_from_tree(node*& root, int value);
 int get_level(node* n);
 void drop_tree(node*& n);
-queue<node*> bypass(node* t, bypass_type type);
+void bypass(queue<node*>& q, node* t, bypass_type type);
+
+void small_rotate_left(node*& n);
+void small_rotate_right(node*& n);
+void large_rotate_left(node*& n);
+void large_rotate_right(node*& n);
+bool balance(node*& n);
 
 stack<node*> find_max_value(node* n);
 stack<node*> find_min_value(node* n);
@@ -35,9 +41,11 @@ void drop_tree(tree& t)
 	drop_tree(t.root);
 }
 
-queue<node*> bypass(tree& t, bypass_type type)
+queue<node*> bypass(tree t, bypass_type type)
 {
-	return queue<node*>();
+	queue<node*> q;
+	bypass(q, t.root, type);
+	return q;
 }
 
 bool add_to_tree(node*& root, int value) {
@@ -161,24 +169,90 @@ void drop_tree(node*& n) {
 	
 }
 
-queue<node*> bypass(node* t, bypass_type type) {
-	queue<node*> q;
+void bypass(queue<node*>& q, node* t, bypass_type type) {
+	if (!t) return;
 	switch (type) {
 	case prefix: {
-
+		q.push(t);
+		bypass(q, t->left, type);
+		bypass(q, t->right, type);
 		break;
 	}
 	case infix: {
-
+		bypass(q, t->left, type);
+		q.push(t);
+		bypass(q, t->right, type);
 		break;
 	}
 	case postfix: {
-
+		bypass(q, t->left, type);
+		bypass(q, t->right, type);
+		q.push(t);
 		break;
 	}
 	case wide: {
-
+		queue<node*> tmp;
+		tmp.push(t);
+		q.push(t);
+		auto cnt = (1 << t->level) - 1; 
+		for (int i = 0; i < cnt; i++) { // Перебираем эл-ты до предпоследнего уровня
+			auto curr = tmp.front();
+			tmp.push(curr ? curr->left : nullptr);
+			tmp.push(curr ? curr->right : nullptr);
+			q.push(curr ? curr->left : nullptr);
+			q.push(curr ? curr->right : nullptr);
+			tmp.pop();
+		}
 		break;
 	}
+	}
+}
+
+void small_rotate_left(node*& n)
+{
+	auto old_root = n;
+	n = n->right;
+	old_root->right = n->left;
+	n->left = old_root;
+}
+
+
+void small_rotate_right(node*& n)
+{
+	auto old_root = n;
+	n = n->left;
+	old_root->left = n->right;
+	n->right = old_root;
+}
+
+void large_rotate_left(node*& n)
+{
+	small_rotate_right(n->right);
+	small_rotate_left(n);
+}
+
+void large_rotate_right(node*& n)
+{
+	small_rotate_left(n->left);
+	small_rotate_right(n);
+}
+
+bool balance(node*& n)
+{
+	auto ll = get_level(n->left);
+	auto rl = get_level(n->right);
+	if (abs(ll - rl) >= 2) { // требуется балансировка
+		if (ll > rl) { // правый поворот
+			auto lll = get_level(n->left->left);
+			auto lrl = get_level(n->left->right);
+			if (lll > lrl) small_rotate_right(n);
+			else large_rotate_right(n);
+		}
+		else { // левый поворот
+			auto rll = get_level(n->right->left);
+			auto rrl = get_level(n->right->right);
+			if (rrl > rll) small_rotate_left(n);
+			else large_rotate_left(n);
+		}
 	}
 }
