@@ -15,13 +15,19 @@ void small_rotate_right(node*& n);
 void large_rotate_left(node*& n);
 void large_rotate_right(node*& n);
 bool balance(node*& n);
+void balance_stack(node*& root, stack<node*> stack);
 
 stack<node*> find_max_value(node* n);
 stack<node*> find_min_value(node* n);
 
 bool add_to_tree(tree& t, int value)
 {
-	return add_to_tree(t.root, value);
+	auto res = add_to_tree(t.root, value);
+	if (res) {
+		t.count++;
+		t.height = get_level(t.root) + 1;
+	}
+	return res;
 }
 
 node* find_in_tree(tree& t, int value)
@@ -33,12 +39,19 @@ node* find_in_tree(tree& t, int value)
 
 bool remove_from_tree(tree& t, int value)
 {
-	return remove_from_tree(t.root, value);
+	auto res = remove_from_tree(t.root, value);
+	if (res) {
+		t.count--;
+		t.height = get_level(t.root) + 1;
+	}
+	return res;
 }
 
 void drop_tree(tree& t)
 {
 	drop_tree(t.root);
+	t.count = 0;
+	t.height = 0;
 }
 
 queue<node*> bypass(tree t, bypass_type type)
@@ -67,13 +80,7 @@ bool add_to_tree(node*& root, int value) {
 	if (value < result->value) result->left = create_node(value);
 	else result->right = create_node(value);
 
-	//Обновление уровня узла
-	while (stack.size() > 0) {
-		result = stack.top();
-		result->level = get_level(result);
-		stack.pop();
-	}
-
+	balance_stack(root, stack);
 	return true;
 }
 
@@ -104,11 +111,13 @@ bool remove_from_tree(node*& root, int value) {
 		}
 		else root = nullptr;
 		delete rem_node;
+		balance_stack(root, st);
 		return true;
 	}
 	// Удаляем не лист. Находим в наиболее высоком поддереве max или min элемент 
 	stack<node*> sub_stack;
-	if (rem_node->left->level > rem_node->right->level) {
+	bool left_subtree = rem_node->left->level > rem_node->right->level;
+	if (left_subtree) {
 		sub_stack = find_max_value(rem_node->left);
 	}
 	else {
@@ -118,19 +127,34 @@ bool remove_from_tree(node*& root, int value) {
 	sub_stack.pop();
 	rem_node->value = leaf->value;
 	rem_node->count = leaf->count;
-	if (leaf->left) sub_stack.top()->right = leaf->left;
-	if (leaf->right) sub_stack.top()->left = leaf->right;
+
+	if (sub_stack.size() > 0) {
+		if (left_subtree)
+			sub_stack.top()->right = leaf->left;
+		else 
+			sub_stack.top()->left = leaf->right;
+	}
+	else {
+		if (left_subtree) 
+			rem_node->left = leaf->left;
+		else
+			rem_node->right = leaf->right;
+	}
 	delete leaf;
-	while (sub_stack.size() > 0) {
+	/*while (sub_stack.size() > 0) {
 		auto curr = sub_stack.top();
+		balance(curr);
 		curr->level = get_level(sub_stack.top());
 		sub_stack.pop();
 	}
 	while (st.size() > 0) {
 		auto curr = st.top();
+		balance(curr);
 		curr->level = get_level(st.top());
 		st.pop();
-	}
+	}*/
+	balance_stack(root, sub_stack);
+	balance_stack(root, st);
 }
 
 stack<node*> find_max_value(node* n) {
@@ -166,7 +190,14 @@ int get_level(node* n) {
 }
 
 void drop_tree(node*& n) {
-	
+	queue<node*> nodes;
+	bypass(nodes, n, postfix);
+	while (nodes.size() > 0) {
+		auto del = nodes.front();
+		nodes.pop();
+		delete del;
+	}
+	n = nullptr;
 }
 
 void bypass(queue<node*>& q, node* t, bypass_type type) {
@@ -210,12 +241,13 @@ void bypass(queue<node*>& q, node* t, bypass_type type) {
 
 void small_rotate_left(node*& n)
 {
-	auto old_root = n;
+	node* old_root = n;
 	n = n->right;
 	old_root->right = n->left;
-	n->left = old_root;
+	n->left = old_root; 
+	old_root->level = get_level(old_root);
+	n->level = get_level(n);
 }
-
 
 void small_rotate_right(node*& n)
 {
@@ -223,6 +255,8 @@ void small_rotate_right(node*& n)
 	n = n->left;
 	old_root->left = n->right;
 	n->right = old_root;
+	old_root->level = get_level(old_root);
+	n->level = get_level(n);
 }
 
 void large_rotate_left(node*& n)
@@ -245,14 +279,39 @@ bool balance(node*& n)
 		if (ll > rl) { // правый поворот
 			auto lll = get_level(n->left->left);
 			auto lrl = get_level(n->left->right);
-			if (lll > lrl) small_rotate_right(n);
+			if (lll >= lrl) small_rotate_right(n);
 			else large_rotate_right(n);
 		}
 		else { // левый поворот
 			auto rll = get_level(n->right->left);
 			auto rrl = get_level(n->right->right);
-			if (rrl > rll) small_rotate_left(n);
+			if (rrl >= rll) small_rotate_left(n);
 			else large_rotate_left(n);
+		}
+		return true;
+	}
+	return false;
+}
+
+void balance_stack(node*& root, stack<node*> stack) {
+	//Обновление структуры дерева вверх по стеку
+	while (stack.size() > 0) {
+		auto result = stack.top();
+		auto balanced = balance(result);
+		result->level = get_level(result);
+		stack.pop();
+		if (balanced) {
+			if (stack.size() == 0) {
+				root = result;
+			}
+			else {
+				if (stack.top()->value > result->value) {
+					stack.top()->left = result;
+				}
+				else {
+					stack.top()->right = result;
+				}
+			}
 		}
 	}
 }
